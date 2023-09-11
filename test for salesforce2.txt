@@ -1,0 +1,112 @@
+1. 
+
+trigger CountChildContacts on Contact (after insert, after update, after delete, after undelete) {
+    Set<Id> accountIds = new set<Id>();
+    for(Contact con: trigger.newMap.values()){
+        if(accountIds!=null){
+            accountIds.add(con.AccountId);
+        }
+    }
+    List<Account> accList = [SELECT Id,Name,(SELECT Id,AccountId from Contacts) FROM Account where ID IN: accountIds];
+    List<Account> contactsToUpdate = new List<Account>();
+    for(Account acc:accList){
+        Account accc = new Account();
+        accc.id = acc.id;
+        accc.Number_of_Contacts__c=acc.contacts.size();
+        contactsToUpdate.add(accc);
+    }
+    update contactsToUpdate;
+}
+
+
+2.
+
+public with sharing class AccountController {
+    @AuraEnabled(cacheable=true)
+    public static List<Account> getRecentAccounts() {
+        return [SELECT Id, Name, CreatedDate FROM Account ORDER BY CreatedDate DESC LIMIT 10];
+    }
+}
+	recentaccounts	list.html
+==========================================
+2.	 <div class="slds-box slds-theme_default">
+3.	        <h2>Recent Accounts</h2>
+4.	        <ul>
+5.	            <lightning-datatable
+6.	            key-field="id"
+7.	            data={accounts}
+8.	            columns={columns}>
+9.	    </lightning-datatable>
+10.	        </ul>
+11.	    </div>
+12.	</template>
+
+
+
+
+2. recentaccountslist.js
+================================
+import { LightningElement, wire } from 'lwc';
+import getRecentAccounts from '@salesforce/apex/AccountController.getRecentAccounts';
+const columns = [
+    { label: 'Account Name', fieldName: 'Name' },    
+];
+
+export default class RecentAccountsList extends LightningElement {
+    accounts = [];
+    columns = columns;
+
+    @wire(getRecentAccounts)
+    wiredRecentAccounts({ error, data }) {
+        if (data) {
+            this.accounts = data;
+        } else if (error) {
+            console.error('Error fetching accounts:', error);
+        }
+    }
+}
+
+
+   recentaccountslist.js-meta.xml
+=======================================
+	xml version="1.0" encoding="UTF-8"?>
+	<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	    <apiVersion>58.0</apiVersion>
+	    <isExposed>true</isExposed>
+	    <targets>
+	   <target>lightning__AppPage</target>
+	     </targets>	</LightningComponentBundle>
+
+3 Integration
+======================
+
+public class HttpCalloutExample {
+    public static void makeHttpCallout() {
+         String endpoint = 'https://postman-echo.com/get?foo1=bar1&foo2=bar2';
+        
+         Http http = new Http();
+        
+        HttpRequest request = new HttpRequest();
+        request.setEndpoint(endpoint);
+        request.setMethod('GET');
+        
+          try {
+               HttpResponse response = http.send(request);
+                if (response.getStatusCode() == 200) {
+                 System.debug('Response Body: ' + response.getBody());
+            } else {
+                System.debug('HTTP Request failed with status code: ' + response.getStatusCode());
+            }
+          }catch (Exception e) {
+            System.debug('Error occurred: ' + e.getMessage());
+        }        
+    }
+
+}
+
+
+
+
+
+
+
